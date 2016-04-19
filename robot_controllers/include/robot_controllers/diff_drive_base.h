@@ -52,7 +52,6 @@
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/LaserScan.h>
 #include <sensor_msgs/Imu.h>
-#include <sensor_msgs/Joy.h>
 
 namespace robot_controllers
 {
@@ -126,9 +125,6 @@ public:
   /** @brief Imu callback .*/
   void imuCallback(const sensor_msgs::ImuConstPtr& msg);
 
-  /** @brief Joystick Callback.*/
-  void joyCallback(const sensor_msgs::JoyConstPtr &joy);
-
 private:
   bool initialized_;
   ControllerManager* manager_;
@@ -187,7 +183,7 @@ private:
   nav_msgs::Odometry odom_;
   ros::Publisher odom_pub_;
   ros::Timer odom_timer_;
-  ros::Subscriber cmd_sub_, scan_sub_, imu_sub_, joy_sub_;
+  ros::Subscriber cmd_sub_, scan_sub_, imu_sub_;
 
   boost::shared_ptr<tf::TransformBroadcaster> broadcaster_;
   bool publish_tf_;

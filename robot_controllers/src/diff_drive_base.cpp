@@ -192,66 +192,6 @@ void DiffDriveBaseController::imuCallback(const sensor_msgs::ImuConstPtr & msg)
   gyro_z_ = msg->angular_velocity.z;
 }
 
-//For easy testing of code with gains set on the joystick
-void DiffDriveBaseController::joyCallback(const sensor_msgs::JoyConstPtr& joy)
-{
-   boost::mutex::scoped_lock lock(command_mutex_);
-   ros::WallTime now = ros::WallTime::now();
-   double time_since_last_button_press = (now - last_button_press_time_).toSec();
-
-   if ((joy->buttons[13] == 1) && (time_since_last_button_press > 2.0))
-   {
-      last_button_press_time_ = now;
-      gain_effort_ <= 11 ? (gain_effort_ += 1):(gain_effort_ = gain_effort_);
-      ROS_DEBUG_DELAYED_THROTTLE(6000,"This button will increment gyro_kp");
-      ROS_INFO("The gyro gain on the effort is %f", gain_effort_);
-   }
-   else if((joy->buttons[15] == 1) && (time_since_last_button_press > 2.0))
-   {
-     last_button_press_time_ = now;
-     gain_effort_ >= -4? (gain_effort_ -= 1):(gain_effort_ = gain_effort_);
-     ROS_DEBUG_DELAYED_THROTTLE(6000, "This button will decrement gyro_kp");
-     ROS_INFO("The gyro gain on the effort is %f", gain_effort_);
-   }
-   else if((joy->buttons[12] == 1) && (time_since_last_button_press > 2.0))
-   {
-     last_button_press_time_ = now;
-     gain_effort_ = 6;
-     ROS_INFO("The gyro gain on the effort is %f", gain_effort_);
-   }
-   else if((joy->buttons[14] == 1) && (time_since_last_button_press > 2.0))
-   {
-     last_button_press_time_ = now;
-     gain_effort_ = 0;
-     ROS_INFO("The gyro gain on the effort is %f", gain_effort_);
-   }
-   else if((joy->buttons[4] == 1) && (time_since_last_button_press > 2.0))
-   {
-     last_button_press_time_ = now;
-     gain_velocity_ = 0.6;
-     ROS_INFO("The gyro gain on the velocity is %f", gain_velocity_);
-   }
-   else if((joy->buttons[6] == 1) && (time_since_last_button_press > 2.0))
-   {
-     last_button_press_time_ = now;
-     gain_velocity_ = 0.0;
-     ROS_INFO("The gyro gain on the velocity is %f", gain_velocity_);
-   }
-   else if((joy->buttons[5] == 1) && (time_since_last_button_press > 2.0))
-   {
-     last_button_press_time_ = now;
-     gain_velocity_ <= 1.2 ? (gain_velocity_ += 0.1):(gain_velocity_ = gain_velocity_);
-     ROS_INFO("The gyro gain on the velocity is %f", gain_velocity_);
-   }
-   else if((joy->buttons[7] == 1) && (time_since_last_button_press > 2.0))
-   {
-     last_button_press_time_ = now;
-     gain_velocity_ >= 0.0 ? (gain_velocity_ -= 0.1):(gain_velocity_ = gain_velocity_);
-     ROS_INFO("The gyro gain on the velocity is %f", gain_velocity_);
-   }
-}
-
-
 bool DiffDriveBaseController::start()
 {
   if (!initialized_)
@@ -393,7 +333,6 @@ void DiffDriveBaseController::update(const ros::Time& now, const ros::Duration& 
   effort_r = p_gain_effort;
   effort_l = -p_gain_effort;
   p_gain_velocity = gain_velocity_ * ang_err;
-
 
   // Actually set command
   if (fabs(dx) > moving_threshold_ ||
