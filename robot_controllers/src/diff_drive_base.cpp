@@ -166,18 +166,10 @@ int DiffDriveBaseController::init(ros::NodeHandle& nh, ControllerManager* manage
   params_pub_.publish(limiter_.getParams());
 
   // Publish cmd values after they have been limited
-  nh.param<bool>("publish_limited_cmd", publish_limited_cmd_, true);
-  if (publish_limited_cmd_)
-  {
-    limited_cmd_pub_ = nh.advertise<geometry_msgs::Twist>("limited_cmd", 10);
-  }
+  limited_cmd_vel_pub_ = nh.advertise<geometry_msgs::Twist>("limited_cmd_vel", 10);
 
-  // Publish cmd values after they have been limited
-  nh.param<bool>("publish_measured_vel", publish_measured_vel_, true);
-  if (publish_measured_vel_)
-  {
-    measured_vel_pub_ = nh.advertise<geometry_msgs::Twist>("measured_vel", 10);
-  }
+  // Publish what measured linear and angular velocities
+  measured_vel_pub_ = nh.advertise<geometry_msgs::Twist>("measured_vel", 10);
 
   // Subscribe to base commands
   cmd_sub_ = nh.subscribe<geometry_msgs::Twist>("command", 1,
@@ -363,24 +355,13 @@ void DiffDriveBaseController::update(const ros::Time& now, const ros::Duration& 
     setCommand(left_velocity, right_velocity);
   }
 
-  if (publish_limited_cmd_)
-  {
-    geometry_msgs::Twist limited_cmd;
-    limited_cmd.linear.x = limited_x;
-    limited_cmd.angular.z = limited_r;
-    limited_cmd_pub_.publish(limited_cmd);
-  }
-
-  if (publish_measured_vel_)
-  {
-    geometry_msgs::Twist measured_vel;
-    measured_vel.linear.x = dx;
-    measured_vel.angular.z = dr;
-    measured_vel_pub_.publish(measured_vel);
-  }
-
   // Lock mutex before updating
   boost::mutex::scoped_lock lock(odom_mutex_);
+
+  limited_cmd_vel_.linear.x = limited_x;
+  limited_cmd_vel_.angular.z = limited_r;
+  measured_vel_.linear.x = dx;
+  measured_vel_.angular.z = dr;
 
   if (std::isfinite(left_vel) && std::isfinite(right_vel))
   {
@@ -427,11 +408,15 @@ std::vector<std::string> DiffDriveBaseController::getClaimedNames()
 
 void DiffDriveBaseController::publishCallback(const ros::TimerEvent& event)
 {
-  // Copy message under lock of mutex
+  // Copy messages under lock of mutex
   nav_msgs::Odometry msg;
+  geometry_msgs::Twist limited_cmd_vel;
+  geometry_msgs::Twist measured_vel;
   {
     boost::mutex::scoped_lock lock(odom_mutex_);
     msg = odom_;
+    limited_cmd_vel = limited_cmd_vel_;
+    measured_vel = measured_vel_;
   }
 
   // Publish or perish
@@ -452,6 +437,9 @@ void DiffDriveBaseController::publishCallback(const ros::TimerEvent& event)
      */
     broadcaster_->sendTransform(tf::StampedTransform(transform, msg.header.stamp, msg.header.frame_id, msg.child_frame_id));
   }
+
+  limited_cmd_vel_pub_.publish(limited_cmd_vel);
+  measured_vel_pub_.publish(measured_vel);
 }
 
 void DiffDriveBaseController::scanCallback(
