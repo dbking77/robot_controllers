@@ -179,6 +179,9 @@ private:
   bool publish_limited_cmd_;
   ros::Publisher limited_cmd_pub_;
 
+  bool publish_measured_vel_;
+  ros::Publisher measured_vel_pub_;
+
   boost::shared_ptr<tf::TransformBroadcaster> broadcaster_;
   bool publish_tf_;
 

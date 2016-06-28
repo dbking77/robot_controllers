@@ -166,10 +166,17 @@ int DiffDriveBaseController::init(ros::NodeHandle& nh, ControllerManager* manage
   params_pub_.publish(limiter_.getParams());
 
   // Publish cmd values after they have been limited
-  nh.param<bool>("publish_limited_cmd", publish_limited_cmd_, false);
+  nh.param<bool>("publish_limited_cmd", publish_limited_cmd_, true);
   if (publish_limited_cmd_)
   {
     limited_cmd_pub_ = nh.advertise<geometry_msgs::Twist>("limited_cmd", 10);
+  }
+
+  // Publish cmd values after they have been limited
+  nh.param<bool>("publish_measured_vel", publish_measured_vel_, true);
+  if (publish_measured_vel_)
+  {
+    measured_vel_pub_ = nh.advertise<geometry_msgs::Twist>("measured_vel", 10);
   }
 
   // Subscribe to base commands
@@ -364,6 +371,13 @@ void DiffDriveBaseController::update(const ros::Time& now, const ros::Duration& 
     limited_cmd_pub_.publish(limited_cmd);
   }
 
+  if (publish_measured_vel_)
+  {
+    geometry_msgs::Twist measured_vel;
+    measured_vel.linear.x = dx;
+    measured_vel.angular.z = dr;
+    measured_vel_pub_.publish(measured_vel);
+  }
 
   // Lock mutex before updating
   boost::mutex::scoped_lock lock(odom_mutex_);
