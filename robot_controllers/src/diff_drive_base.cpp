@@ -204,15 +204,14 @@ int DiffDriveBaseController::init(ros::NodeHandle& nh, ControllerManager* manage
     nh.param<double>("last_odom/theta", theta, NAN);
     if (std::isfinite(x) && std::isfinite(y) && std::isfinite(theta))
     {
-      ROS_WARN("Using saved odom pose : %f, %f, %f", x, y, theta);
+      ROS_WARN("Using saved odom pose : %f, %f, %f", x, y, theta*(180/M_PI));
       odom_.pose.pose.position.x = x;
       odom_.pose.pose.position.y = y;
-      odom_.pose.pose.orientation.z = std::sin(theta/2.0);
-      odom_.pose.pose.orientation.w = std::cos(theta/2.0);
+      theta_ = theta;
     }
     else
     {
-      ROS_WARN("Invalid/NO saved odom pose : %f, %f, %f", x, y, theta);
+      ROS_WARN("Invalid/NO saved odom pose : %f, %f, %f", x, y, theta*(180/M_PI));
     }
   }
 
@@ -301,8 +300,7 @@ void DiffDriveBaseController::saveOdomThread()
       boost::mutex::scoped_lock lock(msg_mutex_);
       x = odom_.pose.pose.position.x;
       y = odom_.pose.pose.position.y;
-      theta = 2.0*std::atan2(odom_.pose.pose.orientation.z,
-			     odom_.pose.pose.orientation.w);
+      theta = theta_;
     }
 
     // Update rosparams : TODO set these together
@@ -311,7 +309,7 @@ void DiffDriveBaseController::saveOdomThread()
     nh_.setParam("last_odom/y", y);
     nh_.setParam("last_odom/theta", theta);
 
-    ROS_WARN("Saving odom %f, %f, %f", x, y, theta);
+    ROS_WARN("Saving odom %f, %f, %f", x, y, theta*(180/M_PI));
     ros::Duration(1.0).sleep();
   }
 
