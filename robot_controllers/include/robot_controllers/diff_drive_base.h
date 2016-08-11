@@ -125,6 +125,7 @@ public:
 private:
   bool initialized_;
   ControllerManager* manager_;
+  ros::NodeHandle nh_;
 
   void publishCallback(const ros::TimerEvent& event);
   void scanCallback(const sensor_msgs::LaserScanConstPtr& scan);
@@ -179,6 +180,10 @@ private:
   ros::Timer odom_timer_;
   ros::Subscriber cmd_sub_, scan_sub_;
   ros::Publisher limited_cmd_pub_;
+
+  // Thread to save odom frame
+  boost::thread save_odom_thread_;
+  void saveOdomThread();
 
   boost::shared_ptr<tf::TransformBroadcaster> broadcaster_;
   bool publish_tf_;

@@ -62,6 +62,8 @@ DiffDriveBaseController::DiffDriveBaseController() :
 
 int DiffDriveBaseController::init(ros::NodeHandle& nh, ControllerManager* manager)
 {
+  nh_ = nh;
+
   // We absolutely need access to the controller manager
   if (!manager)
   {
@@ -194,6 +196,25 @@ int DiffDriveBaseController::init(ros::NodeHandle& nh, ControllerManager* manage
                   boost::bind(&DiffDriveBaseController::scanCallback, this, _1));
   }
 
+  // Try loading previous odom frame from rosparams
+  {
+    double x, y, theta;
+    nh.param<double>("last_odom/x", x, NAN);
+    nh.param<double>("last_odom/y", y, NAN);
+    nh.param<double>("last_odom/theta", theta, NAN);
+    if (std::isfinite(x) && std::isfinite(y) && std::isfinite(theta))
+    {
+      ROS_WARN("Using saved odom pose : %f, %f, %f", x, y, theta);
+      odom_.pose.pose.position.x = x;
+      odom_.pose.pose.position.y = y;
+      odom_.pose.pose.orientation.z = sin(theta_/2.0);
+      odom_.pose.pose.orientation.w = cos(theta_/2.0);
+    }
+  }
+
+  // Spin-up thread to save odom frame
+  save_odom_thread_ = boost::thread(boost::bind(&DiffDriveBaseController::saveOdomThread, this));
+
   initialized_ = true;
 
   // Should we autostart?
@@ -263,6 +284,36 @@ bool DiffDriveBaseController::reset()
   last_command_ = ros::Time(0);
   return true;
 }
+
+
+void DiffDriveBaseController::saveOdomThread()
+{
+  ros::Rate save_rate(5.0); // TODO : have save rate be programable
+  while (ros::ok())
+  {
+    // Get odom frame parameters
+    double x, y, theta;
+    {
+      boost::mutex::scoped_lock lock(msg_mutex_);
+      x = odom_.pose.pose.position.x;
+      y = odom_.pose.pose.position.y;
+      theta = 2.0*atan2(odom_.pose.pose.orientation.z,
+                        odom_.pose.pose.orientation.w);
+    }
+
+    // Update rosparams : TODO set these together
+    // to avoid extra RPC calls to rosparam server
+    nh_.setParam("last_odom/x", x);
+    nh_.setParam("last_odom/y", y);
+    nh_.setParam("last_odom/theta", theta);
+
+    ROS_WARN("Saving odom %f, %f, %f", x, y, theta);
+    save_rate.sleep();
+  }
+
+  ROS_WARN("Odom save thread is exiting");
+}
+
 
 void DiffDriveBaseController::update(const ros::Time& now, const ros::Duration& dt)
 {
