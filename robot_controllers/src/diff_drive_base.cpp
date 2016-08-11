@@ -207,13 +207,18 @@ int DiffDriveBaseController::init(ros::NodeHandle& nh, ControllerManager* manage
       ROS_WARN("Using saved odom pose : %f, %f, %f", x, y, theta);
       odom_.pose.pose.position.x = x;
       odom_.pose.pose.position.y = y;
-      odom_.pose.pose.orientation.z = sin(theta_/2.0);
-      odom_.pose.pose.orientation.w = cos(theta_/2.0);
+      odom_.pose.pose.orientation.z = std::sin(theta/2.0);
+      odom_.pose.pose.orientation.w = std::cos(theta/2.0);
+    }
+    else
+    {
+      ROS_WARN("Invalid/NO saved odom pose : %f, %f, %f", x, y, theta);
     }
   }
 
   // Spin-up thread to save odom frame
   save_odom_thread_ = boost::thread(boost::bind(&DiffDriveBaseController::saveOdomThread, this));
+  //this->saveOdomThread();
 
   initialized_ = true;
 
@@ -288,7 +293,6 @@ bool DiffDriveBaseController::reset()
 
 void DiffDriveBaseController::saveOdomThread()
 {
-  ros::Rate save_rate(5.0); // TODO : have save rate be programable
   while (ros::ok())
   {
     // Get odom frame parameters
@@ -297,8 +301,8 @@ void DiffDriveBaseController::saveOdomThread()
       boost::mutex::scoped_lock lock(msg_mutex_);
       x = odom_.pose.pose.position.x;
       y = odom_.pose.pose.position.y;
-      theta = 2.0*atan2(odom_.pose.pose.orientation.z,
-                        odom_.pose.pose.orientation.w);
+      theta = 2.0*std::atan2(odom_.pose.pose.orientation.z,
+			     odom_.pose.pose.orientation.w);
     }
 
     // Update rosparams : TODO set these together
@@ -308,7 +312,7 @@ void DiffDriveBaseController::saveOdomThread()
     nh_.setParam("last_odom/theta", theta);
 
     ROS_WARN("Saving odom %f, %f, %f", x, y, theta);
-    save_rate.sleep();
+    ros::Duration(1.0).sleep();
   }
 
   ROS_WARN("Odom save thread is exiting");
