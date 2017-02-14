@@ -165,6 +165,10 @@ int DiffDriveBaseController::init(ros::NodeHandle& nh, ControllerManager* manage
   params_pub_ = nh.advertise<robot_controllers_msgs::DiffDriveLimiterParams>("params", 1, true);
   params_pub_.publish(limiter_.getParams());
 
+  // Get robot mass and inertia
+  nh.param<double>("robot_mass", robot_mass_, 68.0);
+  nh.param<double>("robot_angular_inertia", robot_angular_inertia_, 0.0);
+
   // Publish cmd values after they have been limited
   limited_cmd_pub_ = nh.advertise<geometry_msgs::Twist>("command_limited", 10);
 
@@ -340,7 +344,7 @@ void DiffDriveBaseController::update(const ros::Time& now, const ros::Duration& 
   dx = (left_vel + right_vel)/2.0;
   dr = (right_vel - left_vel)/track_width;
 
-  // Actually set command
+  // If command is above a certain threshold, actually set command
   if (fabs(dx) > moving_threshold_ ||
       fabs(dr) > rotating_threshold_ ||
       limited_x != 0.0 ||
@@ -349,7 +353,30 @@ void DiffDriveBaseController::update(const ros::Time& now, const ros::Duration& 
     double left_velocity, right_velocity;
     limiter_.calcWheelVelocities(&left_velocity, &right_velocity,
                                  limited_x, limited_r);
-    setCommand(left_velocity, right_velocity);
+
+    // Calculate linear and angular accelerations
+    double linear_accel = 0.0;
+    double angular_accel = 0.0;
+    double dt_sec = dt.toSec();
+    if (dt_sec > 0.0)
+    {
+      linear_accel = (limited_x - last_sent_x_) / dt_sec;
+      angular_accel = (limited_r - last_sent_r_) / dt_sec;
+    }
+
+    // Ground forces of each wheel that would be required to
+    // make required linear acceleration
+    double linear_force = linear_accel * robot_mass_;
+    // Ground forces of each wheel that would be required to
+    // make required angular acceleration
+    double angular_force = angular_accel * 0.5 * robot_angular_inertia_ / track_width;
+
+    // Ground forces for each wheel to achieve both linear and angular
+    // accelerations of each robot wheel
+    double right_force = linear_force + angular_force;
+    double left_force = linear_force - angular_force;
+
+    setCommand(left_velocity, right_velocity, left_force, right_force);
   }
 
   // Lock mutex before updating
@@ -462,11 +489,15 @@ void DiffDriveBaseController::scanCallback(
   last_laser_scan_ = ros::Time::now();
 }
 
-void DiffDriveBaseController::setCommand(float left, float right)
+void DiffDriveBaseController::setCommand(float left_velocity, float right_velocity,
+                                         float left_force, float right_force)
 {
   // Convert meters/sec into radians/sec
-  left_->setVelocity(left * radians_per_meter_, 0.0);
-  right_->setVelocity(right * radians_per_meter_, 0.0);
+  // Convert linear torque at ground to wheel torque
+  left_->setVelocity(left_velocity * radians_per_meter_,
+                     left_force / radians_per_meter_);
+  right_->setVelocity(right_velocity * radians_per_meter_,
+                      right_force / radians_per_meter_);
 }
 
 }  // namespace robot_controllers

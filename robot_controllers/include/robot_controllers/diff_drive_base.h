@@ -129,8 +129,20 @@ private:
   void publishCallback(const ros::TimerEvent& event);
   void scanCallback(const sensor_msgs::LaserScanConstPtr& scan);
 
-  // Set base wheel speeds in m/s
-  void setCommand(float left, float right);
+  /**
+   * @brief Set base wheel speeds and torques
+   * @param left_velocity linear velocity of left wheel over ground in meters/sec
+   * @param right_velocity linear velocity of right wheel over ground meters/sec
+   * @param left_force linear force of left wheel on ground in Newtons
+   * @param right_force linear force of right wheel on ground in Newtons
+   *
+   * All the velocity settings are for velocity and force of wheel over ground.
+   * Because of this the velocity and effort have linear units (m/s and N).
+   * This function will use wheel radius to convert value to rad/s and Nm for
+   * wheel motor.
+   */
+  void setCommand(float left_velocity, float right_velocity,
+                  float left_force, float right_force);
 
   JointHandlePtr left_;
   JointHandlePtr right_;
@@ -144,6 +156,10 @@ private:
 
   /// Limits differential drive velocity and accelrations
   DiffDriveLimiter limiter_;
+
+  /// Allows controller to feed-forward some torque based on acceleration
+  double robot_mass_;
+  double robot_angular_inertia_;
 
   // Laser can provide additional safety limits on velocity
   double safety_scaling_;  // protected by command_mutex
